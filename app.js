@@ -10,58 +10,47 @@ app.use('/', express.static(__dirname + '/'));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
-app.post('/tasks/new', function (req, res) {
-    mongoClient.connect(url, function (error, db) {
-        if (!error) {
-            let tasks = db.createCollection('tasks', function (error, data) {
-                if (error) {
-                    console.log(error)
-                } else {
-                    console.log("tasks collection created");
-                    data.insert({
-                        description: req.body.description
-                    });
-                }
-            });
-        } else {
-            console.log(error);
+app.get('/heartbeat', (req, res) => res.status(200));
+
+app.post('/tasks/new', (req, res, next) => {
+  mongoClient.connect(url, (error, db) => {
+    if (!error) {
+      db.createCollection('tasks', (error, data) => {
+        if (error) res.status(500).send(`<h1>${error}</h1>`)
+        else {
+          data.insert({ description: req.body.description });
+          res.status(200).sendFile(__dirname + '/index.html')
         }
-    });
+      });
+    } else console.log(error);
+  });
 });
 
-app.get('/', function (req, res) {
-    res.sendFile(__dirname + '/index.html');
-    res.end();
+app.get('/tasks', (req, res) => {
+  mongoClient.connect(url, (error, db) => {
+    if (!error) {
+      db.collection('tasks').find({}).toArray((error, results) => {
+        if (error) return false;
+        res.send(JSON.stringify(results));
+        res.end();
+      });
+    } else console.log('error while getting tasks from DB :', error);
+  });
 });
 
-app.get('/tasks', function (req, res) {
-    mongoClient.connect(url, function (error, db) {
-        if (!error) {
-            let tasks = db.collection('tasks');
-            tasks.find({}).toArray(function (error, results) {
-                res.send(JSON.stringify(results));
-                console.log('data sent');
-            })
-        } else {
-            console.log('error is :', error);
-        }
-    });
+app.post('/tasks/update/:id', (req, res) => {
+  mongoClient.connect(url, (error, db) => {
+    db.collection('tasks').update({ _id: new ObjectId(req.params.id) }, { $set: { description: req.body.description } });
+  });
 });
 
-app.post('/tasks/update/:id', function (req, res) {
-    mongoClient.connect(url, function (error, db) {
-        var tasks = db.collection('tasks');
-        tasks.update(
-            {
-                _id: new ObjectId(req.params.id)
-            },
-            {
-                $set: {
-                    description: req.body.description
-                }
-            }
-        );
-    });
+app.get('*', (req, res) => {
+  res.status(200).sendFile(__dirname + '/index.html');
 });
 
-app.listen(port);
+app.listen(port, (err) => {
+  if (err) return console.error(`Server is not getting up :`, err);
+  return console.log(
+    `Server up and running on http://localhost:${port} 😎`,
+  );
+});

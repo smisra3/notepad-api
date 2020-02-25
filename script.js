@@ -1,12 +1,13 @@
-window.onload = function() {
-    console.log("DOM CONTENT LOADED");
-    fetch("/tasks").then(function(response) {
-        response.json().then(function(res) {
-            var arr = [];
-            for(var i=0;i<res.length;i++){
-                arr.push(document.createElement('li').innerHTML = res[i]['description']); 
-            }
-            document.getElementById('taskArea').innerHTML = arr;
-        });
-    });
+window.onload = () => {
+  return fetch('/tasks')
+    .then(response => response.json())
+    .then(response => {
+      const taskArea = document.getElementById('taskArea');
+      for (let i = 0; i < response.length; i += 1) {
+        const li = document.createElement('li');
+        li.innerHTML = response[i]['description'];
+        taskArea.appendChild(li);
+      }
+    })
+    .catch(error => console.log('error in fetching tasks: ', error));
 }
