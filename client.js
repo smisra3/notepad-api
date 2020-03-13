@@ -10,4 +10,4 @@ window.onload = () => {
       }
     })
     .catch(error => console.log('error in fetching tasks: ', error));
-}
+};
