@@ -3,72 +3,62 @@ const app = express();
 const bodyParser = require('body-parser');
 const mongo = require('mongodb');
 const mongoClient = mongo.MongoClient;
-const url = "mongodb://127.0.0.1:27017/Tutorial";
+const mongoURL = "mongodb://127.0.0.1:27017/Tutorial";
 const port = 3001;
 
-app.use('/', express.static(__dirname + '/'));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
-app.get('/heartbeat', (req, res) => res.status(200));
+app.get('/heartbeat', (req, res) => res.status(200).send('success'));
 
-app.get('/tasks', (req, res) => {
-  mongoClient.connect(url, async (error, db) => {
+app.get('/', (req, res) => {
+  mongoClient.connect(mongoURL, async (error, db) => {
     if (!error) {
       const results = await db.collection('tasks').find({}).toArray();
-      res.send(JSON.stringify(results));
-      res.end();
-    } else console.log('error while getting tasks from DB :', error);
+      res.status(200).send(JSON.stringify(results));
+    } else res.status(500).send(`<h1>${error}</h1>`);
   });
 });
 
-app.get('/:id', (req, res, next) => { // this to be used by user
-  if (!req.params.id) {
-    const aaa = Math.random();
-    res.status(300).redirect(`/${aaa}`);
-  }
-  mongoClient.connect(url, async (error, db) => {
+app.get('/:url', (req, res) => {
+  mongoClient.connect(mongoURL, async (error, db) => {
     if (!error) {
-      const predicate = req.params.id ? { description: req.params.id } : {};
-      const results = await db.collection('tasks').find(predicate).toArray();
-      res.send(JSON.stringify(results));
-      res.end();
-    } else console.log('error while getting tasks from DB :', error);
+      const results = await db.collection('tasks').find({ url: req.params.url }).toArray();
+      res.status(200).send(JSON.stringify(results));
+    } else res.status(500).send(`<h1>${error}</h1>`);
   });
 });
 
-app.get('/tasks/:id', (req, res) => {
-  mongoClient.connect(url, async (error, db) => {
+app.post('/:url', (req, res) => {
+  const { url } = req.params;
+  const { description } = req.body;
+  mongoClient.connect(mongoURL, (error, db) => {
     if (!error) {
-      const predicate = req.params.id ? { description: req.params.id } : {};
-      const results = await db.collection('tasks').find(predicate).toArray();
-      res.send(JSON.stringify(results));
-      res.end();
-    } else console.log('error while getting tasks from DB :', error);
-  });
-});
-
-app.post('/tasks', (req, res, next) => {
-  mongoClient.connect(url, (error, db) => {
-    if (!error) {
-      db.createCollection('tasks', (error, data) => {
+      db.createCollection('tasks', async (error, data) => {
         if (error) res.status(500).send(`<h1>${error}</h1>`)
         else {
-          const { description, } = req.body;
-          data.insert({ description });
-          res.status(200).sendFile(__dirname + '/index.html')
+          const resultArray = await db.collection('tasks')
+            .find({ url })
+            .toArray();
+          if (resultArray.length) {
+            db.collection('tasks').replaceOne({ url }, { url, description });
+            return res.status(200).send('success');
+          }
+          data.insert({ description, url });
+          return res.status(200).send('success');
         }
       });
-    } else console.log(error);
+    } else res.status(500).send(`<h1>${error}</h1>`);
   });
 });
 
-app.delete('/user', function (req, res) {
-  res.send('Got a DELETE request at /user')
-});
-
-app.get('*', (req, res) => {
-  res.status(200).sendFile(__dirname + '/index.html');
+app.delete('/:url', (req, res) => {
+  mongoClient.connect(mongoURL, (error, db) => {
+    if (!error) {
+      db.collection('tasks').remove({ url: req.params.url });
+      res.status(200).send('removed');
+    } else res.status(500).send(`<h1>${error}</h1>`);
+  });
 });
 
 app.listen(port, (err) => {
